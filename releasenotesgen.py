@@ -5,12 +5,21 @@ from datetime import datetime
 import sys
 import os
 import argparse
+import yaml
 
-# Set your GitHub and OpenAI API keys
-GITHUB_TOKEN = ''
-OPENAI_API_KEY = ''
-REPO_OWNER = ''
-REPO_NAME = ''
+# Load configuration from config.yaml
+with open('releasenotesgen.yml', 'r') as config_file:
+    config = yaml.safe_load(config_file)
+REPO_OWNER = config['repo_owner']
+REPO_NAME = config['repo_name']
+
+# Load API keys from environmental variables
+GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+
+if not GITHUB_TOKEN or not OPENAI_API_KEY:
+    print("Error: Please set the GITHUB_TOKEN and OPENAI_API_KEY environment variables.")
+    sys.exit(1)
 
 # Initialize OpenAI
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -102,7 +111,7 @@ def main():
 
     release = args.release
 
-    changelog_path = os.path.join(os.path.dirname(__file__), 'CHANGELOG.md')
+    changelog_path = 'CHANGELOG.md'
     changelog = read_changelog(changelog_path)
     issues, release_date = extract_issues(changelog, release)
 
