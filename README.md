@@ -2,7 +2,7 @@
 
 ### Install openai and requests libraries
 ``` bash
-pip3 install requests openai
+pip3 install requests openai pyyaml
 ```
 
 ### Download from source
