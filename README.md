@@ -53,8 +53,8 @@ export OPENAI_API_KEY="your_openai_api_key"
 Edit `releasenotesgen.yml` in your project directory:
 
 ```yaml
-repo_owner: celery-payroll    # GitHub repository owner/organization
-repo_name: web-app            # GitHub repository name
+repo_owner: fetlang           # GitHub repository owner/organization
+repo_name: fetlang            # GitHub repository name
 model: gpt-4o                 # OpenAI model (optional, default: gpt-4o)
 ```
 
