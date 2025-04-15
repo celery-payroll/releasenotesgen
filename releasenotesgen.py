@@ -14,6 +14,7 @@ with open('releasenotesgen.yml', 'r') as config_file:
     config = yaml.safe_load(config_file)
 REPO_OWNER = config['repo_owner']
 REPO_NAME = config['repo_name']
+MODEL = config.get('model', 'gpt-4o')  # Default to gpt-4o if not specified
 
 # Load API keys from environmental variables
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
@@ -64,9 +65,9 @@ def get_issue_details(issue_number):
 def summarize_issue(title, body):
     prompt = f"Summarize the following GitHub issue:\n\nTitle: {title}\n\nBody: {body}"
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=MODEL,
         messages=[
-            {"role": "system", "content": "You are a very experienced product manager and your specialty is the creation of Changelog summaries. You use the body of GitHub issue, that has been written in English, to summarize the issue into a maximum of 3 sentences. You write the summary from the point of view of a developer that has resolved the issue."},
+            {"role": "system", "content": "You are a very experienced product manager and your specialty is the creation of Changelog summaries. You use the body of GitHub issue, that has been written in English, to summarize the issue into a maximum of 5 sentences. You write the summary from the point of view of the product manager of Celery, the software company that has resolved the issue. Your target audience are payroll administrators and HRM managers. Don't mention any stakeholders."},
             {"role": "user", "content": prompt}
         ],
         max_tokens=1500,
@@ -109,6 +110,7 @@ def write_release_notes(file_path, new_content):
 def main():
     parser = argparse.ArgumentParser(description="Generate release notes for a specific release.")
     parser.add_argument('release', type=str, help='The release number to generate notes for')
+    parser.add_argument('--dry-run', action='store_true', help='Display the release notes without writing to file')
     args = parser.parse_args()
 
     release = args.release
@@ -130,10 +132,16 @@ def main():
                 summaries[category].append((summary, issue_number, link))
                 processed_issues.add(issue_number)
 
-    # Only write to RELEASE_NOTES.md if there are summaries
+    # Only generate release notes if there are summaries
     if any(summaries.values()):
         new_release_notes = build_release_notes(release, release_date, summaries)
-        write_release_notes('RELEASE_NOTES.md', new_release_notes)
+
+        if args.dry_run:
+            print("==== RELEASE NOTES PREVIEW ====")
+            print(new_release_notes)
+            print("===============================")
+        else:
+            write_release_notes('RELEASE_NOTES.md', new_release_notes)
     else:
         print(f"No issues found for release {release}.")
 
