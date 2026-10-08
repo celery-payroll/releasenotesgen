@@ -94,6 +94,19 @@ releasenotesgen 1.2.3
   ```bash
   releasenotesgen 1.2.3 --dry-run
   ```
+- `--version`: Print the tool version and exit
+  ```bash
+  releasenotesgen --version
+  ```
+
+## Versioning
+
+The tool follows [semantic versioning](https://semver.org/). The version lives in `__version__` in `releasenotesgen.py`. To release, bump `__version__` and tag the commit as `vX.Y.Z`:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
 
 ## Output
 

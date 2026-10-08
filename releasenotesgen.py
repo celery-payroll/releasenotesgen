@@ -9,23 +9,33 @@ import os
 import argparse
 import yaml
 
-# Load configuration from config.yaml
-with open('releasenotesgen.yml', 'r') as config_file:
-    config = yaml.safe_load(config_file)
-REPO_OWNER = config['repo_owner']
-REPO_NAME = config['repo_name']
-MODEL = config.get('model', 'gpt-5.4-mini')  # Default to gpt-5.4-mini if not specified
+__version__ = '1.0.0'
 
-# Load API keys from environmental variables
-GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
-OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
+REPO_OWNER = None
+REPO_NAME = None
+MODEL = None
+GITHUB_TOKEN = None
+client = None
 
-if not GITHUB_TOKEN or not OPENAI_API_KEY:
-    print("Error: Please set the GITHUB_TOKEN and OPENAI_API_KEY environment variables.")
-    sys.exit(1)
 
-# Initialize OpenAI
-client = OpenAI(api_key=OPENAI_API_KEY)
+def load_config():
+    """
+    Loads releasenotesgen.yml and the API keys from the environment into module globals.
+    Deferred until after argument parsing so `--version` works without them.
+    """
+    global REPO_OWNER, REPO_NAME, MODEL, GITHUB_TOKEN, client
+    with open('releasenotesgen.yml', 'r') as config_file:
+        config = yaml.safe_load(config_file)
+    REPO_OWNER = config['repo_owner']
+    REPO_NAME = config['repo_name']
+    MODEL = config.get('model', 'gpt-5.4-mini')
+
+    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+    openai_api_key = os.getenv('OPENAI_API_KEY')
+    if not GITHUB_TOKEN or not openai_api_key:
+        print("Error: Please set the GITHUB_TOKEN and OPENAI_API_KEY environment variables.")
+        sys.exit(1)
+    client = OpenAI(api_key=openai_api_key)
 
 def read_changelog(file_path):
     try:
@@ -124,11 +134,17 @@ def write_release_notes(file_path, new_content):
         sys.exit(1)
 
 def main():
+    """
+    CLI entry point: parses arguments, loads config, then generates the notes.
+    Config loading comes after parsing so `--version` needs no yml or keys.
+    """
     parser = argparse.ArgumentParser(description="Generate release notes for a specific release.")
     parser.add_argument('release', type=str, help='The release number to generate notes for')
     parser.add_argument('--dry-run', action='store_true', help='Display the release notes without writing to file')
+    parser.add_argument('--version', action='version', version=f'%(prog)s {__version__}')
     args = parser.parse_args()
 
+    load_config()
     release = args.release
 
     changelog_path = 'CHANGELOG.md'
