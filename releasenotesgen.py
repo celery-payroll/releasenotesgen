@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import re
 import requests
 from openai import OpenAI
@@ -5,15 +7,35 @@ from datetime import datetime
 import sys
 import os
 import argparse
+import yaml
 
-# Set your GitHub and OpenAI API keys
-GITHUB_TOKEN = ''
-OPENAI_API_KEY = ''
-REPO_OWNER = ''
-REPO_NAME = ''
+__version__ = '1.0.0'
 
-# Initialize OpenAI
-client = OpenAI(api_key=OPENAI_API_KEY)
+REPO_OWNER = None
+REPO_NAME = None
+MODEL = None
+GITHUB_TOKEN = None
+client = None
+
+
+def load_config():
+    """
+    Loads releasenotesgen.yml and the API keys from the environment into module globals.
+    Deferred until after argument parsing so `--version` works without them.
+    """
+    global REPO_OWNER, REPO_NAME, MODEL, GITHUB_TOKEN, client
+    with open('releasenotesgen.yml', 'r') as config_file:
+        config = yaml.safe_load(config_file)
+    REPO_OWNER = config['repo_owner']
+    REPO_NAME = config['repo_name']
+    MODEL = config.get('model', 'gpt-5.4-mini')
+
+    GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
+    openai_api_key = os.getenv('OPENAI_API_KEY')
+    if not GITHUB_TOKEN or not openai_api_key:
+        print("Error: Please set the GITHUB_TOKEN and OPENAI_API_KEY environment variables.")
+        sys.exit(1)
+    client = OpenAI(api_key=openai_api_key)
 
 def read_changelog(file_path):
     try:
@@ -53,13 +75,29 @@ def get_issue_details(issue_number):
 def summarize_issue(title, body):
     prompt = f"Summarize the following GitHub issue:\n\nTitle: {title}\n\nBody: {body}"
     response = client.chat.completions.create(
-        model="gpt-4o",
+        model=MODEL,
         messages=[
-            {"role": "system", "content": "You are a very experienced product manager and your specialty is the creation of Changelog summaries. You use the body of GitHub issue, that has been written in English, to summarize the issue into a maximum of 3 sentences. You write the summary from the point of view of a developer that has resolved the issue."},
+            {"role": "system", "content": """
+You are generating client-facing release notes based on a GitHub issue.
+
+Instructions:
+	•	Summarize the issue from the customer’s perspective, focusing on what changed and why it matters.
+	•	Use clear, non-technical language suitable for end users.
+	•	Do not mention:
+	•	Developer names
+	•	Company names
+	•	Internal tools, tickets, or technical implementation details
+	•	Keep the summary to a maximum of 5 sentences.
+	•	If the issue is purely technical and has no direct user impact, summarize it as a stability, performance, or reliability improvement.
+	•	Do not speculate or add information not present in the issue.
+
+Input: GitHub issue title and description
+Output: A short, polished release note entry for clients.
+"""},
             {"role": "user", "content": prompt}
         ],
-        max_tokens=1500,
-        temperature=0.5
+        max_completion_tokens=3000,
+        temperature=0.3
     )
     return response.choices[0].message.content.strip()
 
@@ -96,13 +134,20 @@ def write_release_notes(file_path, new_content):
         sys.exit(1)
 
 def main():
+    """
+    CLI entry point: parses arguments, loads config, then generates the notes.
+    Config loading comes after parsing so `--version` needs no yml or keys.
+    """
     parser = argparse.ArgumentParser(description="Generate release notes for a specific release.")
     parser.add_argument('release', type=str, help='The release number to generate notes for')
+    parser.add_argument('--dry-run', action='store_true', help='Display the release notes without writing to file')
+    parser.add_argument('--version', action='version', version=f'%(prog)s {__version__}')
     args = parser.parse_args()
 
+    load_config()
     release = args.release
 
-    changelog_path = os.path.join(os.path.dirname(__file__), 'CHANGELOG.md')
+    changelog_path = 'CHANGELOG.md'
     changelog = read_changelog(changelog_path)
     issues, release_date = extract_issues(changelog, release)
 
@@ -119,10 +164,16 @@ def main():
                 summaries[category].append((summary, issue_number, link))
                 processed_issues.add(issue_number)
 
-    # Only write to RELEASE_NOTES.md if there are summaries
+    # Only generate release notes if there are summaries
     if any(summaries.values()):
         new_release_notes = build_release_notes(release, release_date, summaries)
-        write_release_notes('RELEASE_NOTES.md', new_release_notes)
+
+        if args.dry_run:
+            print("==== RELEASE NOTES PREVIEW ====")
+            print(new_release_notes)
+            print("===============================")
+        else:
+            write_release_notes('RELEASE_NOTES.md', new_release_notes)
     else:
         print(f"No issues found for release {release}.")
 
