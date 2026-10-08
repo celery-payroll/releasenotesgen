@@ -9,11 +9,30 @@ import os
 import argparse
 import yaml
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
+
+DEFAULT_SYSTEM_PROMPT = """
+You are generating client-facing release notes based on a GitHub issue.
+
+Instructions:
+	•	Summarize the issue from the customer’s perspective, focusing on what changed and why it matters.
+	•	Use clear, non-technical language suitable for end users.
+	•	Do not mention:
+	•	Developer names
+	•	Company names
+	•	Internal tools, tickets, or technical implementation details
+	•	Keep the summary to a maximum of 5 sentences.
+	•	If the issue is purely technical and has no direct user impact, summarize it as a stability, performance, or reliability improvement.
+	•	Do not speculate or add information not present in the issue.
+
+Input: GitHub issue title and description
+Output: A short, polished release note entry for clients.
+"""
 
 REPO_OWNER = None
 REPO_NAME = None
 MODEL = None
+SYSTEM_PROMPT = None
 GITHUB_TOKEN = None
 client = None
 
@@ -23,12 +42,16 @@ def load_config():
     Loads releasenotesgen.yml and the API keys from the environment into module globals.
     Deferred until after argument parsing so `--version` works without them.
     """
-    global REPO_OWNER, REPO_NAME, MODEL, GITHUB_TOKEN, client
+    global REPO_OWNER, REPO_NAME, MODEL, SYSTEM_PROMPT, GITHUB_TOKEN, client
     with open('releasenotesgen.yml', 'r') as config_file:
         config = yaml.safe_load(config_file)
     REPO_OWNER = config['repo_owner']
     REPO_NAME = config['repo_name']
     MODEL = config.get('model', 'gpt-5.4-mini')
+    SYSTEM_PROMPT = config.get('system_prompt', DEFAULT_SYSTEM_PROMPT)
+    if not isinstance(SYSTEM_PROMPT, str) or not SYSTEM_PROMPT.strip():
+        print("Error: 'system_prompt' in releasenotesgen.yml must be a non-empty string.")
+        sys.exit(1)
 
     GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
     openai_api_key = os.getenv('OPENAI_API_KEY')
@@ -77,23 +100,7 @@ def summarize_issue(title, body):
     response = client.chat.completions.create(
         model=MODEL,
         messages=[
-            {"role": "system", "content": """
-You are generating client-facing release notes based on a GitHub issue.
-
-Instructions:
-	•	Summarize the issue from the customer’s perspective, focusing on what changed and why it matters.
-	•	Use clear, non-technical language suitable for end users.
-	•	Do not mention:
-	•	Developer names
-	•	Company names
-	•	Internal tools, tickets, or technical implementation details
-	•	Keep the summary to a maximum of 5 sentences.
-	•	If the issue is purely technical and has no direct user impact, summarize it as a stability, performance, or reliability improvement.
-	•	Do not speculate or add information not present in the issue.
-
-Input: GitHub issue title and description
-Output: A short, polished release note entry for clients.
-"""},
+            {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": prompt}
         ],
         max_completion_tokens=3000,
