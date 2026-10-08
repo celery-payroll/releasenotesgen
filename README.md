@@ -55,7 +55,32 @@ Edit `releasenotesgen.yml` in your project directory:
 ```yaml
 repo_owner: fetlang           # GitHub repository owner/organization
 repo_name: fetlang            # GitHub repository name
-model: gpt-4o                 # OpenAI model (optional, default: gpt-4o)
+model: gpt-5.4-mini           # OpenAI model (optional, default: gpt-5.4-mini)
+```
+
+### Custom system prompt
+
+The built-in system prompt writes release notes for non-technical end users. A project can supply its own prompt with the optional `system_prompt` key. When the key is present its value **replaces the default prompt entirely**; nothing is appended or prepended. When it is absent, the default prompt is used. The value must be a non-empty string, otherwise the tool exits with an error.
+
+Example for an API project whose readers are integrators:
+
+```yaml
+repo_owner: celery-payroll
+repo_name: web-api
+system_prompt: |
+  You are writing release notes for developers who integrate with the Celery REST API, based on a GitHub issue.
+
+  Instructions:
+  - Describe what changed in the API from the integrator's perspective: which endpoint, field, header, query parameter or status code is new or behaves differently, and what a client has to do about it.
+  - Use the names exactly as they appear in the API (paths, field names, header names).
+  - If a change can break existing clients, start the entry with "Breaking:".
+  - Keep the entry to a maximum of 4 sentences.
+  - Do not mention developer names, company names, internal tools, database tables, class names or branches.
+  - If the issue has no effect on API consumers, summarize it as a stability, performance or reliability improvement in one sentence.
+  - Do not speculate or add information not present in the issue.
+
+  Input: GitHub issue title and description
+  Output: a short, precise release note entry for API integrators.
 ```
 
 ## Requirements
@@ -98,6 +123,12 @@ releasenotesgen 1.2.3
   ```bash
   releasenotesgen --version
   ```
+
+## Tests
+
+```bash
+python3 -m unittest
+```
 
 ## Versioning
 
