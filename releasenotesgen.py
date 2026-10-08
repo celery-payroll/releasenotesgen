@@ -14,7 +14,7 @@ with open('releasenotesgen.yml', 'r') as config_file:
     config = yaml.safe_load(config_file)
 REPO_OWNER = config['repo_owner']
 REPO_NAME = config['repo_name']
-MODEL = config.get('model', 'gpt-4o')  # Default to gpt-4o if not specified
+MODEL = config.get('model', 'gpt-5.4-mini')  # Default to gpt-5.4-mini if not specified
 
 # Load API keys from environmental variables
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
@@ -86,8 +86,8 @@ Output: A short, polished release note entry for clients.
 """},
             {"role": "user", "content": prompt}
         ],
-        max_tokens=1500,
-        temperature=0.5
+        max_completion_tokens=3000,
+        temperature=0.3
     )
     return response.choices[0].message.content.strip()
 
